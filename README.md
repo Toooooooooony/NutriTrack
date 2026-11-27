@@ -8,7 +8,7 @@ A Java Swing desktop application developed by a four-person University of Toront
 
 The project emphasizes **Clean Architecture**, **SOLID principles**, maintainable Java code, and collaborative development using GitHub.
 
-**Current status:** Core Entity layer and its JUnit 5 test classes have been implemented. Use cases, the Swing interface, persistence, and external API integration are upcoming work. Passing test results have not yet been confirmed in this README.
+**Current status:** The core Entity layer and the Swing Meal Generator are implemented. The generator uses a sample food catalog. Food database management, persistence, and external API integration are upcoming work.
 
 ## Project Objectives and Features
 
@@ -38,12 +38,11 @@ The project emphasizes **Clean Architecture**, **SOLID principles**, maintainabl
 - Preserve nutrition snapshots so later food-bank edits do not change previously recorded values.
 - Compare planned and actual nutrition in the interface (planned feature).
 
-### Meal Suggestions (Proposed)
+### Meal Generator
 
-- Suggest meals based on preferred ingredients and nutritional targets.
-- Allow users to review and adjust suggestions before including them in plans.
-
-The scope and implementation of meal suggestions are subject to team feasibility review.
+- Select preferred ingredients and enter a calorie target.
+- Generate equal-weight portions scaled to the target and view each ingredient's amount and calories.
+- Review the generated meal total alongside the target. Adding suggestions to a plan is planned work.
 
 ### Persistence (Planned)
 
@@ -99,7 +98,7 @@ FoodItem ── NutritionTotals (per 100 g)
 FoodPortion ── NutritionTotals (portion snapshot)
 ```
 
-### Planned Clean Architecture Package Structure
+### Clean Architecture Package Structure
 
 ```text
 src/main/java/
@@ -182,8 +181,8 @@ Follow Java conventions and the course's Checkstyle expectations. Do not commit 
 | Implement core Entity layer | November 2026 | Implemented |
 | Write Entity layer JUnit test classes | November 2026 | Implemented; results to verify |
 | Define repository interfaces and use-case boundaries | TBD | Next |
-| Implement the major use cases | TBD | Not started |
-| Build the Java Swing interface | TBD | Not started |
+| Implement the major use cases | TBD | Meal Generator implemented |
+| Build the Java Swing interface | TBD | Meal Generator screen implemented |
 | Integrate a nutrition API | TBD | Not started |
 | Implement persistence | TBD | Not started |
 | Integration testing and bug fixes | TBD | Not started |
@@ -191,7 +190,12 @@ Follow Java conventions and the course's Checkstyle expectations. Do not commit 
 
 ## Demonstration
 
-Screenshots, walkthroughs, and application setup instructions will be added as working UI features become available.
+Open the project in IntelliJ IDEA and run `app.Main`.
+
+1. Open “Add Food”, enter the food name and its nutritional values per 100 g, then click “Add Food”. Repeat for each ingredient you want to use.
+2. Open “Meal Generator” and select your preferred ingredients.
+3. Enter a calorie target, such as `450` kcal, and click “Generate meal”.
+4. Review the amount of each ingredient and compare the meal's total calories with your target.
 
 ## Project Documentation
 

@@ -4,6 +4,8 @@ import data_access.InMemoryFoodDataAccessObject;
 import data_access.InMemoryMealPlanDataAccessObject;
 import interface_adapter.add_food.AddFoodController;
 import interface_adapter.add_food.AddFoodPresenter;
+import use_case.meal_generator.MealGenerator.GeneratedMeal;
+import data_access.UsdaFoodClient;
 import interface_adapter.add_food.AddFoodViewModel;
 import interface_adapter.meal_planning.AddPlannedMealController;
 import interface_adapter.meal_planning.AddPlannedMealPresenter;
@@ -14,6 +16,13 @@ import interface_adapter.meal_planning.CreatePlanViewModel;
 import interface_adapter.view_food_bank.ViewFoodBankController;
 import interface_adapter.view_food_bank.ViewFoodBankPresenter;
 import interface_adapter.view_food_bank.ViewFoodBankViewModel;
+import interface_adapter.meal_generator.MealGeneratorController;
+import interface_adapter.meal_generator.MealGeneratorPresenter;
+import interface_adapter.meal_generator.MealGeneratorViewModel;
+import use_case.meal_generator.MealGenerator;
+import use_case.meal_generator.MealGeneratorInputBoundary;
+import use_case.meal_generator.MealGeneratorInteractor;
+import use_case.meal_generator.MealGeneratorOutputBoundary;
 import use_case.add_food.AddFoodInputBoundary;
 import use_case.add_food.AddFoodInteractor;
 import use_case.add_food.AddFoodOutputBoundary;
@@ -30,6 +39,7 @@ import view.AddFoodView;
 import view.AddPlannedMealView;
 import view.CreatePlanView;
 import view.FoodBankView;
+import view.MealGeneratorPanel;
 
 public class AppBuilder {
 
@@ -65,6 +75,22 @@ public class AppBuilder {
                 new ViewFoodBankController(interactor);
 
         return new FoodBankView(controller, viewModel);
+    }
+
+    public MealGeneratorPanel buildMealGeneratorView() {
+        MealGeneratorViewModel viewModel = new MealGeneratorViewModel();
+        MealGeneratorOutputBoundary presenter = new MealGeneratorPresenter(viewModel);
+        MealGeneratorInputBoundary interactor =
+                new MealGeneratorInteractor(new MealGenerator(), presenter);
+        MealGeneratorController controller = new MealGeneratorController(interactor);
+
+        String apiKey = System.getenv("USDA_API_KEY");
+        if (apiKey == null || apiKey.isBlank()) {
+            apiKey = "DEMO_KEY";
+        }
+
+        UsdaFoodClient usda = new UsdaFoodClient(apiKey.strip());
+        return new MealGeneratorPanel(controller, viewModel, foodDataAccess::getAllFoods, usda);
     }
 
     public CreatePlanView buildCreatePlanView() {
