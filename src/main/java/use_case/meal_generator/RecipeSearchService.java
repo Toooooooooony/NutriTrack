@@ -133,8 +133,7 @@ public final class RecipeSearchService {
     private Result scaleMainIngredients(Candidate candidate, double target)
             throws InterruptedException {
         List<Row> originalRows = new ArrayList<>();
-        double mainTotal = 0;
-        boolean allMainAmountsKnown = true;
+        List<String> missingLines = new ArrayList<>();
 
         for (MeasuredIngredient ingredient : candidate.ingredients) {
             double weight = mealDbGrams(ingredient);
@@ -142,16 +141,64 @@ public final class RecipeSearchService {
             Double kcal = null;
 
             if (isMainIngredient(ingredient.name)) {
-                Double caloriesPer100g = grams == null ? null : mainCaloriesPer100g(ingredient);
-                if (caloriesPer100g == null) {
-                    allMainAmountsKnown = false;
-                } else {
-                    kcal = caloriesPer100g * grams / 100.0;
-                    mainTotal += kcal;
+                if (grams != null) {
+                    Double kcalPer100g = mainCaloriesPer100g(ingredient);
+                    if (kcalPer100g != null) {
+                        kcal = kcalPer100g * grams / 100.0;
+                    }
+                }
+                if (grams == null || kcal == null) {
+                    missingLines.add(recipeLine(ingredient));
+                }
+            }
+            originalRows.add(new Row(ingredient.name, grams, kcal, ingredient.measure));
+        }
+
+        Map<String, JsonObject> estimates = estimateRecipePortions(missingLines);
+        double mainTotal = 0;
+        boolean allMainAmountsKnown = true;
+
+        for (int i = 0; i < originalRows.size(); i++) {
+            MeasuredIngredient ingredient = candidate.ingredients.get(i);
+            if (!isMainIngredient(ingredient.name)) {
+                continue;
+            }
+
+            Row row = originalRows.get(i);
+            Double grams = row.grams;
+            Double kcal = row.calories;
+            JsonObject estimate = estimates.get(recipeLine(ingredient));
+
+            if (estimate != null && (grams == null || kcal == null)) {
+                JsonObject weight = estimate.getAsJsonObject("weightPerServing");
+                if (weight != null && "g".equalsIgnoreCase(text(weight, "unit"))
+                        && weight.has("amount") && !weight.get("amount").isJsonNull()) {
+                    double estimatedGrams = weight.get("amount").getAsDouble();
+                    if (Double.isFinite(estimatedGrams) && estimatedGrams > 0) {
+                        if (grams == null) {
+                            grams = estimatedGrams;
+                        }
+                        if (kcal == null) {
+                            Double kcalPer100g = mainCaloriesPer100g(ingredient);
+                            if (kcalPer100g != null) {
+                                kcal = kcalPer100g * grams / 100.0;
+                            } else {
+                                Double estimatedKcal = readCalories(estimate.getAsJsonArray("nutrients"));
+                                if (estimatedKcal != null) {
+                                    kcal = estimatedKcal * grams / estimatedGrams;
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            originalRows.add(new Row(ingredient.name, grams, kcal, ingredient.measure));
+            if (grams == null || kcal == null || !Double.isFinite(kcal) || kcal < 0) {
+                allMainAmountsKnown = false;
+            } else {
+                mainTotal += kcal;
+            }
+            originalRows.set(i, new Row(row.ingredient, grams, kcal, row.originalMeasure));
         }
 
         if (!allMainAmountsKnown || !Double.isFinite(mainTotal) || mainTotal <= 0) {
@@ -176,6 +223,31 @@ public final class RecipeSearchService {
         }
 
         return new Result(candidate, scaledRows, scaledMainTotal, true);
+    }
+
+    private Map<String, JsonObject> estimateRecipePortions(List<String> lines)
+            throws InterruptedException {
+        Map<String, JsonObject> estimates = new LinkedHashMap<>();
+        if (spoonacular == null || lines.isEmpty()) {
+            return estimates;
+        }
+
+        try {
+            for (JsonElement entry : spoonacular.parseIngredientNutrition(lines)) {
+                JsonObject parsed = entry.getAsJsonObject();
+                JsonObject nutrition = parsed.getAsJsonObject("nutrition");
+                if (nutrition != null) {
+                    estimates.put(text(parsed, "original"), nutrition);
+                }
+            }
+        } catch (IOException exception) {
+            System.err.println("Recipe portion lookup failed: " + exception.getMessage());
+        }
+        return estimates;
+    }
+
+    private static String recipeLine(MeasuredIngredient ingredient) {
+        return normalizeMeasure(ingredient.measure) + " " + ingredient.name;
     }
 
     private static boolean isMainIngredient(String name) {
